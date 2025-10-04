@@ -1,0 +1,116 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  SSH_CLI: ${SSH_CLI:-ssh}
+  REMOTE_HOST: ${REMOTE_HOST:-nobody@127.0.0.1}
+  STACK: ${STACK:-1811labs}
+  IMAGE_NAME: ${IMAGE_NAME:-1811labs/nestjs-boilerplate}
+  IMAGE_TAG:
+    sh: echo ${IMAGE_TAG:-$(git describe --tags --always)}
+  DOCKER_COMPOSE_FILE: ${DOCKER_COMPOSE_FILE:-docker-compose.deploy.yml}
+
+includes:
+  schedule: .tasks/schedule
+  command: .tasks/command
+
+dotenv:
+  - ".env.{{.ENV}}"
+  - "{{.ENV}}.env"
+  - ".env"
+  - "default.env"
+
+tasks:
+  printenv:
+    silent: true
+    cmds:
+      - printenv {{.CLI_ARGS}}
+
+  deploy:init:
+    cmds:
+      - echo {{.SSH_CLI}} {{.REMOTE_HOST}} "mkdir -p ~/.docker-compose/{{.STACK}} && chmod 750 ~/.docker-compose"
+
+  docker:build:
+    cmds:
+      - docker build -f Dockerfile -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} {{.CLI_ARGS}} .
+
+  deploy:push:
+    cmds:
+      - docker save {{.IMAGE_NAME}}:{{.IMAGE_TAG}} | bzip2 | {{.SSH_CLI}} {{.REMOTE_HOST}} "docker load"
+
+  docker:deploy:
+    cmds:
+      - |
+        export APP_VERSION={{.IMAGE_TAG}}
+        export APP_BACKEND_IMAGE={{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+        rsync -avP crontabs {{.REMOTE_HOST}}:~/.docker-compose/{{.STACK}}
+        docker-compose -f {{.DOCKER_COMPOSE_FILE}} config | {{.SSH_CLI}} {{.REMOTE_HOST}} "cat >~/.docker-compose/{{.STACK}}/docker-compose.yml"
+        {{.SSH_CLI}} {{.REMOTE_HOST}} "cd ~/.docker-compose/{{.STACK}} && docker-compose up -d"
+
+  deploy:
+    cmds:
+      - task: deploy:init
+      - task: docker:build
+      - task: deploy:push
+      - task: docker:deploy
+
+  compose:
+    silent: true
+    cmds:
+      - |
+        {{.SSH_CLI}} {{.REMOTE_HOST}} "cd ~/.docker-compose/{{.STACK}}; docker-compose {{.CLI_ARGS}}"
+
+  remote:migration:
+    silent: true
+    cmds:
+      - |
+        {{.SSH_CLI}} {{.REMOTE_HOST}} "cd ~/.docker-compose/{{.STACK}}; docker-compose exec app node node_modules/typeorm/cli.js migration:show -d ./src/database/datasource.js"
+
+  remote:migration-run:
+    silent: true
+    cmds:
+      - |
+        {{.SSH_CLI}} {{.REMOTE_HOST}} "cd ~/.docker-compose/{{.STACK}}; docker-compose exec app node node_modules/typeorm/cli.js migration:run -d ./src/database/datasource.js"
+
+  remote:seed:
+    silent: true
+    cmds:
+      - |
+        {{.SSH_CLI}} {{.REMOTE_HOST}} "cd ~/.docker-compose/{{.STACK}}; docker-compose exec app node src/console.js db:seed {{.CLI_ARGS}}"
+
+  remote:psql:
+    cmds:
+      - |
+        {{.SSH_CLI}} {{.REMOTE_HOST}} "cd ~/.docker-compose/{{.STACK}}; docker-compose exec postgres bash -c 'PGPASSWORD=\${POSTGRES_PASSWORD} psql -U \${POSTGRES_USER} \${POSTGRES_DB}'"
+
+  psql:
+    silent: true
+    cmds:
+      - |
+        docker-compose exec postgres bash -c 'PGPASSWORD=${POSTGRES_PASSWORD} psql -U ${POSTGRES_USER} {{.POSTGRES_DB | default "${POSTGRES_DB}"}} {{.CLI_ARGS}}'
+
+  remote:db:export:
+    cmds:
+      - |
+        {{.SSH_CLI}} {{.REMOTE_HOST}} "cd ~/.docker-compose/{{.STACK}} && docker-compose exec postgres bash -c 'PGPASSWORD=\${POSTGRES_PASSWORD} pg_dump --clean --no-owner -U \${POSTGRES_USER} \${POSTGRES_DB}'"
+
+  db:export:
+    cmds:
+      - |
+        docker run --rm -i postgres:15.2 bash -c "pg_dump --clean --no-owner ${POSTGRES_URL}"
+
+  db:import:
+    cmds:
+      - |
+        docker-compose exec -T postgres bash -c 'PGPASSWORD=${POSTGRES_PASSWORD} psql -U ${POSTGRES_USER} {{.POSTGRES_DB | default "${POSTGRES_DB}"}}'
+
+  remote:db:to-local:
+    cmds:
+      - |
+        task remote:db:export | task db:import
+
+  ssh:
+    cmds:
+      - |
+        {{.SSH_CLI}} {{.REMOTE_HOST}} {{.CLI_ARGS}}

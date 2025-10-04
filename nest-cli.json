@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "projects": {
+    "core": {
+      "type": "library",
+      "root": "libs/core",
+      "entryFile": "index",
+      "sourceRoot": "libs/core/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/core/tsconfig.lib.json"
+      }
+    },
+    "rabbitmq": {
+      "type": "library",
+      "root": "libs/rabbitmq",
+      "entryFile": "index",
+      "sourceRoot": "libs/rabbitmq/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/rabbitmq/tsconfig.lib.json"
+      }
+    },
+    "chain": {
+      "type": "library",
+      "root": "libs/chain",
+      "entryFile": "index",
+      "sourceRoot": "libs/chain/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/chain/tsconfig.lib.json"
+      }
+    },
+    "swap": {
+      "type": "library",
+      "root": "libs/swap",
+      "entryFile": "index",
+      "sourceRoot": "libs/swap/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/swap/tsconfig.lib.json"
+      }
+    }
+  },
+  "compilerOptions": {
+    "watchAssets": true,
+    "assets": [
+      {
+        "include": "views/**/*.hbs",
+        "outDir": "dist/src/",
+        "watchAssets": true
+      },
+      {
+        "include": "../assets/",
+        "outDir": "dist/assets/",
+        "watchAssets": true
+      }
+    ]
+  }
+}

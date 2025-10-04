@@ -1,0 +1,483 @@
+version: '3.9'
+
+volumes:
+  redis:
+  postgres:
+  traefik:
+  rabbitmq:
+
+    # Make sure public network is created prior to first deployment
+networks:
+  public:
+    external: true
+
+services:
+  app:
+    image: ${APP_BACKEND_IMAGE:-registry.digitalocean.com/1811labs/nest-boilerplate:latest}
+    restart: unless-stopped
+    logging:
+      driver: journald
+    ports:
+      - 3001
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: curl --fail http://localhost:3001/api/health/liveness || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - public
+      - default
+    environment:
+      - NEW_RELIC_NO_CONFIG_FILE=true
+      - NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
+      - NEW_RELIC_LOG=stdout
+      - NEW_RELIC_LICENSE_KEY
+      - NEW_RELIC_APP_NAME=${STACK:-pg}-app
+      - SWAGGER_PUBLIC_ONLY=true
+      - RMQ_REGISTER_HANDLER=false
+      - RMQ_BOOTSTRAP_WAIT=false
+      - RMQ_REJECT=false
+
+      - CHECKOUT_FRONTEND_URL
+      - INVOICE_FRONTEND_URL
+
+      - THROTTLE_TTL
+      - THROTTLE_LIMIT
+
+      - POLYGON_RPC_URL
+      - ETHEREUM_RPC_URL
+      - BSC_RPC_URL
+      - SOL_RPC_URL
+
+      - NODE_ENV
+      - PORT
+      - APP_VERSION
+      - APP_ENV
+      - SENTRY_DSN
+
+      - API_URL
+      - FRONTEND_URL
+
+      - SWAGGER_ENABLED
+      - LOG_LEVEL
+      - CORS
+      - AUTH_AUTO_REGISTRATION
+
+      - JWT_EXPIRATION_TIME
+      - JWT_ISSUER
+      - JWT_PRIVATE_KEY
+      - JWT_PUBLIC_KEY
+
+      - POSTGRES_URL
+      - POSTGRES_SSL_CA
+
+      - ORM_LOGGING_ENABLED
+      - ORM_AUTO_MIGRATION
+      - ORM_SYNCHRONIZE
+
+      - S3_ENDPOINT
+      - S3_KEY
+      - S3_SECRET
+      - S3_BUCKET
+      - S3_REGION
+
+      - SUPABASE_URL
+      - SUPABASE_KEY
+      - SUPABASE_BUCKET
+
+      - MAIL_HOST
+      - MAIL_PORT
+      - MAIL_USERNAME
+      - MAIL_PASSWORD
+      - MAIL_IGNORE_TLS
+      - MAIL_SECURE
+      - MAIL_FROM_NAME
+      - MAIL_FROM_EMAIL
+
+      - ALCHEMY_API_KEY
+      - ALCHEMY_BASE_URL
+
+      - SOLANA_MONITORING_REFERENCE_ADDRESS
+
+      - OZD_CHAIN_80001_RELAYER_KEY
+      - OZD_CHAIN_80001_RELAYER_SECRET
+      - OZD_CHAIN_137_RELAYER_KEY
+      - OZD_CHAIN_137_RELAYER_SECRET
+      - OZD_CHAIN_1_RELAYER_KEY
+      - OZD_CHAIN_1_RELAYER_SECRET
+      - OZD_CHAIN_5_RELAYER_KEY
+      - OZD_CHAIN_5_RELAYER_SECRET
+      - OZD_CHAIN_56_RELAYER_KEY
+      - OZD_CHAIN_56_RELAYER_SECRET
+      - OZD_CHAIN_97_RELAYER_KEY
+      - OZD_CHAIN_97_RELAYER_SECRET
+
+      - FORKED_CHAIN_RELAYER_ADDRESS
+      - FORKED_CHAIN_RELAYER_PRIVATE_KEY
+
+      - GOOGLE_RECAPTCHA_SECRET_KEY
+      - GOOGLE_RECAPTCHA_DEBUG
+
+      - CUSTOMERIO_SITE_ID
+      - CUSTOMERIO_TRACKING_API_KEY
+      - CUSTOMERIO_HOSTNAME
+
+      - COINGECKO_API_CACHE_TIME
+
+      - DEFAULT_PREFERRED_CHAINID
+      - DEFAULT_PREFERRED_CURRENCY
+
+      - RMQ_CONNECTION_TIMEOUT
+      - RMQ_URI
+      - RMQ_PREFETCH
+      - RMQ_CA
+      - RMQ_CHANNELS
+
+      - BROWSERLESS_API_BASE_URL
+      - BROWSERLESS_API_TOKEN
+      - PDF_HTML_BASE_URL
+
+      - GLOBAL_WEBHOOK_ENDPOINT
+      - WEBHOOK_ENDPOINT_TIMEOUT
+      - INTERNAL_API_TOKEN
+
+      - HEALTH_MEMORY_HEAP_THRESHOLD
+      - HEALTH_DB_TIMEOUT
+
+      - UNSTOPPABLE_CLIENT_ID
+      - UNSTOPPABLE_TOKEN_ISSUER
+
+      - QUOTE_SIGN_KEY
+      - ZEROX_API_KEY
+
+      - MAX_WITHDRAWAL_SLIPPAGE_PERCENTAGE
+      - SWAP_DEFAULT_FEE
+
+      - ORG_SETTING_ALLOW_SWAP
+
+      - FEATURE_SUBSCRIPTION_EMAILS
+      - SKIP_ORG_FOR_BACKGROUNG_CRON_JOBS
+      - CORE_TEAM_ACCOUNTS
+
+      - QUIRREL_TOKEN
+      - QUIRREL_BASE_URL
+      - QUIRREL_ENCRYPTION_SECRET
+      - QUIRREL_API_URL
+      - QUIRREL_SIGNATURE_PUBLIC_KEY
+      - PARTNER_ORG_IDS
+
+      - SECRET_ENCRYPTION_KEY
+      - MIN_TRANSACTION_CONFIRMATION
+
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${STACK:-pg}_backend_app.rule=Host(`${APP_BACKEND_HOST:?err}`)
+      - traefik.http.routers.${STACK:-pg}_backend_app.tls=true
+      - traefik.http.routers.${STACK:-pg}_backend_app.entrypoints=http,https
+      - traefik.http.services.${STACK:-pg}_backend_app.loadbalancer.server.port=3001
+
+  worker:
+    image: ${APP_BACKEND_IMAGE:-registry.digitalocean.com/1811labs/nest-boilerplate:latest}
+    restart: unless-stopped
+    logging:
+      driver: journald
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: curl --fail http://localhost:3001/api/health/liveness || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - default
+    environment:
+      - NEW_RELIC_NO_CONFIG_FILE=true
+      - NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
+      - NEW_RELIC_LOG=stdout
+      - NEW_RELIC_LICENSE_KEY
+      - NEW_RELIC_APP_NAME=${STACK:-pg}-worker
+      - SWAGGER_PUBLIC_ONLY=true
+      - RMQ_REGISTER_HANDLER=true
+      - RMQ_BOOTSTRAP_WAIT=true
+      - RMQ_REJECT=true
+
+      - CHECKOUT_FRONTEND_URL
+      - INVOICE_FRONTEND_URL
+
+      - THROTTLE_TTL
+      - THROTTLE_LIMIT
+
+      - POLYGON_RPC_URL
+      - ETHEREUM_RPC_URL
+      - BSC_RPC_URL
+
+      - NODE_ENV
+      - PORT
+      - APP_VERSION
+      - APP_ENV
+      - SENTRY_DSN
+
+      - API_URL
+      - FRONTEND_URL
+
+      - SWAGGER_ENABLED
+      - LOG_LEVEL
+      - CORS
+      - AUTH_AUTO_REGISTRATION
+
+      - JWT_EXPIRATION_TIME
+      - JWT_ISSUER
+      - JWT_PRIVATE_KEY
+      - JWT_PUBLIC_KEY
+
+      - POSTGRES_URL
+      - POSTGRES_SSL_CA
+
+      - ORM_LOGGING_ENABLED
+      - ORM_AUTO_MIGRATION
+      - ORM_SYNCHRONIZE
+
+      - S3_ENDPOINT
+      - S3_KEY
+      - S3_SECRET
+      - S3_BUCKET
+      - S3_REGION
+
+      - SUPABASE_URL
+      - SUPABASE_KEY
+      - SUPABASE_BUCKET
+
+      - MAIL_HOST
+      - MAIL_PORT
+      - MAIL_USERNAME
+      - MAIL_PASSWORD
+      - MAIL_IGNORE_TLS
+      - MAIL_SECURE
+      - MAIL_FROM_NAME
+      - MAIL_FROM_EMAIL
+
+      - ALCHEMY_API_KEY
+      - ALCHEMY_BASE_URL
+
+      - SOLANA_MONITORING_REFERENCE_ADDRESS
+
+      - OZD_CHAIN_80001_RELAYER_KEY
+      - OZD_CHAIN_80001_RELAYER_SECRET
+      - OZD_CHAIN_137_RELAYER_KEY
+      - OZD_CHAIN_137_RELAYER_SECRET
+      - OZD_CHAIN_1_RELAYER_KEY
+      - OZD_CHAIN_1_RELAYER_SECRET
+      - OZD_CHAIN_5_RELAYER_KEY
+      - OZD_CHAIN_5_RELAYER_SECRET
+      - OZD_CHAIN_56_RELAYER_KEY
+      - OZD_CHAIN_56_RELAYER_SECRET
+      - OZD_CHAIN_97_RELAYER_KEY
+      - OZD_CHAIN_97_RELAYER_SECRET
+
+      - FORKED_CHAIN_RELAYER_ADDRESS
+      - FORKED_CHAIN_RELAYER_PRIVATE_KEY
+
+      - GOOGLE_RECAPTCHA_SECRET_KEY
+      - GOOGLE_RECAPTCHA_DEBUG
+
+      - CUSTOMERIO_SITE_ID
+      - CUSTOMERIO_TRACKING_API_KEY
+      - CUSTOMERIO_HOSTNAME
+
+      - COINGECKO_API_CACHE_TIME
+
+      - DEFAULT_PREFERRED_CHAINID
+      - DEFAULT_PREFERRED_CURRENCY
+
+      - RMQ_CONNECTION_TIMEOUT
+      - RMQ_URI
+      - RMQ_PREFETCH
+      - RMQ_CA
+      - RMQ_CHANNELS
+
+      - BROWSERLESS_API_BASE_URL
+      - BROWSERLESS_API_TOKEN
+      - PDF_HTML_BASE_URL
+
+      - GLOBAL_WEBHOOK_ENDPOINT
+      - WEBHOOK_ENDPOINT_TIMEOUT
+      - INTERNAL_API_TOKEN
+
+      - HEALTH_MEMORY_HEAP_THRESHOLD
+      - HEALTH_DB_TIMEOUT
+
+      - UNSTOPPABLE_CLIENT_ID
+      - UNSTOPPABLE_TOKEN_ISSUER
+
+      - QUOTE_SIGN_KEY
+      - ZEROX_API_KEY
+
+      - MAX_WITHDRAWAL_SLIPPAGE_PERCENTAGE
+      - SWAP_DEFAULT_FEE
+
+      - ORG_SETTING_ALLOW_SWAP
+
+      - FEATURE_SUBSCRIPTION_EMAILS
+      - SKIP_ORG_FOR_BACKGROUNG_CRON_JOBS
+      - CORE_TEAM_ACCOUNTS
+
+      - QUIRREL_TOKEN
+      - QUIRREL_BASE_URL
+      - QUIRREL_ENCRYPTION_SECRET
+      - QUIRREL_API_URL
+      - QUIRREL_SIGNATURE_PUBLIC_KEY
+      - PARTNER_ORG_IDS
+
+      - SECRET_ENCRYPTION_KEY
+      - MIN_TRANSACTION_CONFIRMATION
+
+  cron:
+    image: alpine/curl
+    restart: unless-stopped
+    command: sh -c "cat /crontabs/* > /var/spool/cron/crontabs/root && crond -l 2 -f -L /dev/stdout"
+    volumes:
+      - ./crontabs:/crontabs:ro
+    environment:
+      - INTERNAL_API_TOKEN
+
+  postgres:
+    image: postgres:14-alpine
+    restart: unless-stopped
+    logging:
+      driver: journald
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    ports:
+      - 5432
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+
+  rabbitmq:
+    image: ghcr.io/rkalkani/rabbitmq-docker:v3.11.11-management-alpine
+    restart: unless-stopped
+    logging:
+      driver: journald
+    ports:
+      - 5672
+      - 15672
+    environment:
+      - RABBITMQ_DEFAULT_USER
+      - RABBITMQ_DEFAULT_PASS
+      - RABBITMQ_DEFAULT_VHOST=/
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${STACK:-pg}_rabbitmq.rule=Host(`${STACK:-pg}-rabbitmq-testfleet.1811labs.com`)
+      - traefik.http.routers.${STACK:-pg}_rabbitmq.tls=true
+      - traefik.http.routers.${STACK:-pg}_rabbitmq.entrypoints=cloudflare
+      - traefik.http.services.${STACK:-pg}_rabbitmq.loadbalancer.server.port=15672
+
+  redis:
+    image: bitnami/redis:7.0.4
+    restart: unless-stopped
+    logging:
+      driver: journald
+    volumes:
+      - redis:/bitnami/redis/data
+    ports:
+      - 6379
+    environment:
+      - REDIS_PASSWORD
+
+  quirrel:
+    image: ghcr.io/quirrel-dev/quirrel:1.14.1
+    restart: unless-stopped
+    logging:
+      driver: journald
+    ports:
+      - 9181
+    environment:
+      - REDIS_URL
+      - DISABLE_TELEMETRY=1
+      - LOG_LEVEL=debug
+      # - PASSPHRASES=1811labs
+
+  traefik:
+    image: traefik:2.8
+    profiles:
+      - infra
+    restart: unless-stopped
+    logging:
+      driver: journald
+    command:
+      - --api
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.network=public
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:80
+      - --entrypoints.https.address=:443
+      - --entrypoints.cloudflare.address=:8090
+      - --entryPoints.http.forwardedHeaders.trustedIPs=${TF_HTTP_FORWARDED_HEADERS_TRUSTED_IPS:-0.0.0.0/0}
+      - --entryPoints.https.forwardedHeaders.trustedIPs=${TF_HTTPS_FORWARDED_HEADERS_TRUSTED_IPS:-0.0.0.0/0}
+      - --entryPoints.cloudflare.forwardedHeaders.trustedIPs=${TF_CLOUDFLARE_FORWARDED_HEADERS_TRUSTED_IPS:-0.0.0.0/0}
+      - --entryPoints.http.forwardedHeaders.insecure=${TF_HTTP_FORWARDED_HEADERS_INSECURE:-false}
+      - --entryPoints.https.forwardedHeaders.insecure=${TF_HTTPS_FORWARDED_HEADERS_INSECURE:-false}
+      - --entryPoints.cloudflare.forwardedHeaders.insecure=${TF_CLOUDFLARE_FORWARDED_HEADERS_INSECURE:-false}
+      - --entrypoints.http.http.redirections.entryPoint.to=https
+      - --entrypoints.http.http.redirections.entrypoint.scheme=https
+      - --serverstransport.insecureskipverify=true
+      - --accesslog=true
+      - --accesslog.format=json
+      - --accesslog.fields.defaultmode=keep
+      - --accesslog.fields.names.ClientUsername=drop
+      - --accesslog.fields.headers.defaultmode=drop
+      - --accesslog.fields.headers.names.User-Agent=keep
+      - --accesslog.fields.headers.names.Authorization=redact
+      - --accesslog.fields.headers.names.Content-Type=keep
+      - --accesslog.fields.headers.names.Cf-Connecting-Ip=keep
+      - --accesslog.fields.headers.names.Cf-Ipcountry=keep
+      - --accesslog.fields.headers.names.Origin=keep
+      - --accesslog.fields.headers.names.User-Agent=keep
+      - --accesslog.fields.headers.names.X-Real-Ip=keep
+      - --accesslog.fields.headers.names.Sec-Ch-Ua=keep
+      - --accesslog.fields.headers.names.Sec-Ch-Ua-Mobile=keep
+      - --accesslog.fields.headers.names.Sec-Ch-Ua-Platform=keep
+      - --accesslog.fields.names.StartLocal=drop
+      - --accesslog.fields.names.ClientAddr=drop
+      - --accesslog.fields.names.ClientPort=drop
+      - --accesslog.fields.names.ServiceURL=drop
+      - --accesslog.fields.names.TLSCipher=drop
+      - --accesslog.fields.names.TLSVersion=drop
+      # - --certificatesresolvers.le.acme.tlschallenge=false
+      # - --certificatesresolvers.le.acme.email=rahul.kalkani@kalkani.in
+      # - --certificatesresolvers.le.acme.storage=/certificates/acme.json
+    networks:
+      - public
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+      - target: 443
+        published: 443
+        mode: host
+      - target: 8080
+        published: 8080
+        mode: host
+      - target: 8090
+        published: 8090
+        mode: host
+    volumes:
+      - traefik:/certificates:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - traefik.enable=false
+      # - traefik.enable=true
+      # - traefik.http.routers.${STACK:-pg}_traefik.rule=Host(`${STACK:-pg}-traefik-testfleet.1811labs.com`)
+      # - traefik.http.routers.${STACK:-pg}_traefik.tls=true
+      # - traefik.http.routers.${STACK:-pg}_traefik.entrypoints=cloudflare
+      # - traefik.http.services.${STACK:-pg}_traefik.loadbalancer.server.port=8080

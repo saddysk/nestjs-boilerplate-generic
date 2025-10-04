@@ -1,0 +1,41 @@
+version: "3"
+
+vars:
+  BACKEND_API: >-
+    {{.API | default "http://localhost:3001"}}
+  AUTH_HEADER: >-
+    --header "Authorization: Bearer ${INTERNAL_API_TOKEN}"
+
+tasks:
+  call-cron-endpoint:
+    internal: true
+    cmds:
+      - curl --fail -s -X POST {{.BACKEND_API}}/api/cron/schedule/{{.CRON_COMMAND}} {{.AUTH_HEADER}} | jq
+
+  subscription-renewal:
+    desc: Schedule subscription renewal
+    cmds:
+      - task: call-cron-endpoint
+        vars:
+          CRON_COMMAND: subscription-renewal
+
+  invoice-auto-advance:
+    desc: Schedule invoice auto advancement
+    cmds:
+      - task: call-cron-endpoint
+        vars:
+          CRON_COMMAND: invoice-auto-advance
+
+  checkout-session-expiry:
+    desc: Schedule checkout session expiry
+    cmds:
+      - task: call-cron-endpoint
+        vars:
+          CRON_COMMAND: checkout-session-expiry
+
+  subscription-validation:
+    desc: Schedule subscription validation
+    cmds:
+      - task: call-cron-endpoint
+        vars:
+          CRON_COMMAND: subscription-validation

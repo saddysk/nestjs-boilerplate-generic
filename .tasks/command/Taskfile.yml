@@ -1,0 +1,67 @@
+version: "3"
+
+vars:
+  BACKEND_API: >-
+    {{.API | default "http://localhost:3001"}}
+  AUTH_HEADER: >-
+    --header "Authorization: Bearer ${INTERNAL_API_TOKEN}"
+
+tasks:
+  call-command:
+    internal: true
+    cmds:
+      - >-
+       {{.DEBUG}} curl --location {{.BACKEND_API}}/api/v1/commands{{.CLI_ARGS}} {{.AUTH_HEADER}} | jq
+
+  payment-method-health:
+    desc: Check the current status of eip5827 payment method
+    cmds:
+      - task: call-command
+        vars:
+          CLI_ARGS: >-
+            /payment-method-health/${ID}
+    preconditions:
+      - sh: '[ -n "$ID" ]'
+        msg: "ID env is not set with payment method id"
+
+  initiate-withdrawal:
+    desc: Initiate a withdrawal manually
+    cmds:
+      - task: call-command
+        vars:
+          CLI_ARGS: >-
+            /initiate-withdrawal
+            --data "{\"checkoutSessionId\": \"${CHECKOUT_SESSION_ID}\"}"
+            --header 'Content-Type: application/json'
+    preconditions:
+      - sh: '[ -n "$CHECKOUT_SESSION_ID" ]'
+        msg: "CHECKOUT_SESSION_ID env is not set with checkout session id"
+
+  generate-checkoutsession-withdrawal-bytecode:
+    desc: Generate a checkout session bytecode for withdrawal
+    cmds:
+      - task: call-command
+        vars:
+          CLI_ARGS: >-
+            /generate-checkoutsession-withdrawal-bytecode
+            --data "{\"checkoutSessionId\": \"${CHECKOUT_SESSION_ID}\"}"
+            --header 'Content-Type: application/json'
+    preconditions:
+      - sh: '[ -n "$CHECKOUT_SESSION_ID" ]'
+        msg: "CHECKOUT_SESSION_ID env is not set with checkout session id"
+
+  publish-payment-activity:
+    desc: Publish payment activity
+    requires:
+      envs:
+        - TX_HASH
+        - ASSET
+        - KIND
+    cmds:
+      - task: call-command
+        vars:
+          CLI_ARGS: >-
+            /publish-payment-activity
+            --data "{\"transactionHash\": \"${TX_HASH}\",\"assetId\": \"${ASSET}\",\"kind\": \"${KIND}\"}"
+            --header 'Content-Type: application/json'
+
