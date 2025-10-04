@@ -21,7 +21,7 @@
     "resolveJsonModule": true,
     "paths": {
       "@skull/core": ["libs/core/src"],
-      "@skull/core/*": ["libs/core/src/*"],
+      "@skull/core/*": ["libs/core/src/*"]
     }
   }
 }
