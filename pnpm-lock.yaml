@@ -237,6 +237,9 @@ importers:
       '@types/node':
         specifier: ^16.18.39
         version: 16.18.126
+      '@types/passport':
+        specifier: ^1.0.17
+        version: 1.0.17
       '@types/passport-http-bearer':
         specifier: ^1.0.37
         version: 1.0.42

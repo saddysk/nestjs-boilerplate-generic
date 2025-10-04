@@ -18,7 +18,7 @@ export enum UserStatus {
 
 export enum UserAccountType {
   Email = 'email',
-  Wallet = 'wallet',
+  Google = 'google',
 }
 
 export interface IUser {

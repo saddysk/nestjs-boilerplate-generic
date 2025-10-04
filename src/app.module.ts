@@ -6,6 +6,7 @@ import { SentryInterceptor, SentryModule } from '@ntegral/nestjs-sentry';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { RateLimitGuard } from './common/gaurds/rate-limit.guard';
+import { AuthModule } from './auth/auth.module';
 
 const CONFIG = AppConfig();
 
@@ -37,6 +38,7 @@ if (CONFIG.SENTRY_DSN) {
     }),
     BaseModule,
     HealthModule,
+    AuthModule,
   ],
   providers: [
     {

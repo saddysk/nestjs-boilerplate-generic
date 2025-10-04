@@ -25,6 +25,7 @@ const env = cleanEnv(process.env, {
   SWAGGER_ENABLED: bool({ default: false, devDefault: true }),
   LOG_LEVEL: str({ default: 'debug', devDefault: 'verbose' }),
   CORS: bool({ default: true, devDefault: true }),
+  AUTH_AUTO_REGISTRATION: bool({ default: false, devDefault: true }),
 
   SENTRY_DSN: str({ default: null, devDefault: null }),
 
